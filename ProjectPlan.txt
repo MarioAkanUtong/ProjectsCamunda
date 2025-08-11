@@ -1,0 +1,89 @@
+0. TELL ME ABOUT YOURSELF
+“I’m a Cloud and Systems Engineer with hands-on experience in patching, vulnerability remediation, and infrastructure upgrades across Linux, Windows, and hybrid cloud environments. I’m certified in AWS, Azure, and Kubernetes, with a strong background in automating patch cycles, hardening systems to meet compliance frameworks like NIST and CIS, and managing enterprise change through ServiceNow. In past roles, I’ve led incident response for critical outages, coordinated multi-team upgrades with zero downtime, and implemented monitoring that reduced high-severity incidents by over 30%. I’m looking for a role where I can bring that same focus on operational excellence, security, and collaboration to drive uptime and compliance at scale.”
+
+
+
+1.  Patching & Vulnerability Remediation
+
+Technical Scenario: “A recent vulnerability scan flags a critical CVE on multiple servers in production. Walk me through your process from identification to patch deployment.”
+
+They’re testing: prioritization, downtime planning, testing patches before rollout, rollback strategy, and how you coordinate with stakeholders.
+
+Patching & Vulnerability Remediation
+Scenario: “A recent vulnerability scan flags a critical CVE on multiple production servers. Walk me through your process.”
+
+Answer:
+“I’d start by validating the scan results to rule out false positives. Then I’d review the CVE severity, vendor advisories, and any available mitigations. I’d prioritize based on business impact, asset criticality, and exposure risk. For production, I’d stage the patch in a test environment, validate compatibility, and prepare a rollback plan. I’d schedule deployment during a maintenance window, communicate downtime to stakeholders, and monitor system health post-patch. Finally, I’d update documentation and confirm closure in the vulnerability tracking system.”
+
+2. Upgrades & Maintenance
+
+Scenario: “You need to upgrade the database version for a business-critical application. What steps do you take to minimize impact and ensure compatibility?”
+
+They’re looking for: change-management process, backups, testing in a staging environment, and post-upgrade validation.
+
+ Upgrades & Maintenance
+Scenario: “You need to upgrade the database version for a critical app.”
+
+Answer:
+“I’d start with compatibility checks between the new database version and our application stack. I’d build a test environment mirroring production and run regression tests. Backups are mandatory before the upgrade. I’d create a step-by-step plan, define rollback criteria, and communicate the maintenance schedule to all affected teams. During the upgrade, I’d monitor logs and performance metrics in real time. Post-upgrade, I’d validate data integrity, run functionality tests, and document the change in our CMDB and project records.”
+
+3. Incident Response
+
+Scenario: “It’s 2 AM and a critical application is down. The monitoring system alerts you to high CPU on multiple nodes. How do you proceed?”
+
+They want to see: ability to troubleshoot under pressure, communicate with relevant teams, follow incident response plans, and document findings.
+
+Incident Response
+Scenario: “It’s 2 AM and a critical app is down. High CPU on multiple nodes.”
+
+Answer:
+“I’d immediately acknowledge the alert in our ticketing system and notify the on-call team. First step is containment—preventing impact from spreading. I’d check monitoring dashboards and logs to identify whether the spike is from a process loop, a DDoS, or a runaway job. If needed, I’d redistribute load or restart affected services in a controlled way. I’d keep stakeholders updated every 15–30 minutes, document every action, and, once resolved, perform a root cause analysis to prevent recurrence.”
+
+4. Documentation & Reporting
+
+Scenario: “Your team just completed a high-risk patching operation. What documentation do you produce and who do you share it with?”
+
+Focus: clarity, audience-appropriate summaries, compliance with audit requirements.
+
+Documentation & Reporting
+Scenario: “Your team just finished a high-risk patching operation. What do you document?”
+
+Answer:
+“I’d produce a change-completion report detailing what was patched, when, and by whom. I’d include pre- and post-change health checks, any issues encountered, how they were resolved, and whether the rollback plan was needed. For leadership, I’d provide a concise summary of the impact, timeline, and next steps. I’d also update our CMDB and attach the report to the ServiceNow change ticket for audit purposes.”
+
+5. Collaboration & Leadership
+
+Behavioral Question: “Tell me about a time you had to coordinate a multi-team upgrade or remediation effort. How did you handle conflicts or delays?”
+
+They want: leadership approach, communication style, problem resolution skills.
+
+Collaboration & Leadership
+Question: “Tell me about a time you had to coordinate a multi-team upgrade.”
+
+Answer:
+“In one project, we had to patch middleware across 50 servers involving network, storage, and application teams. I built a single project plan with dependencies mapped out and assigned clear owners for each step. We held short daily check-ins to track progress and address blockers. When delays occurred due to test failures, I worked with the vendor directly to get expedited fixes. We delivered the upgrade with zero unplanned downtime because communication was tight and responsibilities were clear.”
+
+6.  Operational Excellence
+
+Scenario: “You’ve noticed storage capacity trending toward critical thresholds faster than expected. How do you address this?”
+
+They expect: capacity planning, automation, vendor engagement, and prevention measures.
+
+Operational Excellence
+Scenario: “Storage capacity is trending toward critical thresholds.”
+
+Answer:
+“I’d first validate the data with monitoring tools to confirm the growth trend. Then I’d identify which systems or data sets are consuming the most space. If growth is legitimate, I’d propose a tiered approach—archiving old data to cheaper storage, expanding capacity, and implementing quotas where possible. I’d work with application teams to identify cleanup opportunities and schedule capacity upgrades before we hit risk thresholds.”
+
+7. Compliance & Security
+
+Scenario: “An auditor asks for proof that all critical vulnerabilities are patched within SLA. How do you provide this?”
+
+They’re testing: familiarity with audit processes, documentation quality, and tooling used for tracking remediation.
+
+Compliance & Security
+Scenario: “Auditor asks for proof all critical vulnerabilities are patched within SLA.”
+
+Answer:
+“I’d pull historical patch compliance reports from our vulnerability management tool and cross-reference them with our ServiceNow change records. Each record would show the vulnerability ID, date detected, patch applied, and verification scan. I’d present this as a single package for the auditor, along with our documented patching policy and SLA metrics. This way, we demonstrate both technical compliance and process adherence.”
+
