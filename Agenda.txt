@@ -1,0 +1,130 @@
+1. Discussion of Your Last 2–3 Major Projects
+----------------------------------------------------------------------
+
+What they want: Your role, challenges, and outcomes — showing ownership, problem-solving, and impact.
+
+Scenario:
+
+Sample Answer:
+
+“In my last role, I led a cloud migration project where I automated provisioning using Terraform and 
+configuration management with Ansible. I wrote reusable Terraform modules to deploy network, compute, 
+and storage resources across dev, staging, and production. One challenge was managing secret handling 
+securely,so I integrated HashiCorp Vault with our pipelines. As a result, deployment times dropped 
+by 60%, and manual errors nearly disappeared. I also mentored junior engineers on infrastructure as
+ code  best practices.”
+
+
+ Execution Flow (Live Demo)
+
+1. Provision Infrastructure: Show modules creating network, compute, and storage.
+
+terraform init
+terraform apply -var env=dev
+
+2. Configure with Ansible
+
+ansible-playbook -i inventory.ini playbooks/configure-app.yml
+
+3. Inject Secrets Securely: Show secret being pulled into Ansible without hardcoding.
+
+vault login <token>
+vault kv get secret/db
+
+4. Highlight Results
+
+Point out reusable modules (./modules/*)
+
+Show Ansible configuration changes applied instantly
+
+Explain how Vault protects sensitive data
+
+
+
+
+2. Approaches to Testing, Monitoring, and Security
+-----------------------------------------------------------------------------
+Scenario:
+“How do you ensure infrastructure changes don’t break production?”
+
+
+Sample Answer:
+“To prevent issues in production, I follow a strict multi-stage deployment pipeline: first, 
+terraform plan runs automated tests in dev and staging. I use linters like tfsec to catch
+ security issues in IaC code. Monitoring uses Prometheus and Grafana to alert on anomalies, 
+ and we rotate secrets via Vault monthly. Security scans of container images happen before 
+ deployment to reduce vulnerabilities.”
+
+Answer points:
+
+Use Terraform plan and apply in dev/staging before prod.
+Automated tests in CI for config syntax, linting, and integration tests.
+Use monitoring tools like Prometheus, Grafana, ELK stack to catch issues early.
+Secrets management via Vault or Kubernetes secrets, rotate regularly.
+Conduct security scans (e.g., Aqua Security, tfsec) on IaC code.
+
+3. Criteria for Measuring Success and Evaluating Solutions
+-------------------------------------------------------------------------------
+Scenario:
+“What metrics do you track to know your deployment and monitoring are effective?”
+
+Answer points:
+
+Deployment success rate and mean time to recovery (MTTR).
+Error rates and latency in app metrics.
+Security audit findings and patch compliance rates.
+Pipeline throughput and lead time from commit to deploy.
+Feedback from end-users and dev teams on reliability.
+
+Sample Answer:
+“I track deployment success rates and mean time to recovery as key KPIs. Monitoring focuses 
+on error rates, latency, and resource usage. I also review security audit results to ensure 
+compliance. Pipeline efficiency is measured by lead time from commit to production deploy. 
+User feedback rounds out the picture, helping prioritize reliability improvements.”
+
+
+4.  Potential Improvements or Alternative Technologies
+--------------------------------------------------------------------------------------
+Scenario:
+“If you could redesign your current infrastructure, what would you change or add?”
+
+Answer points:
+
+Introduce GitOps workflows for better version control and auditability.
+Implement service mesh (e.g., Istio) for better traffic control and security.
+Move secrets management to centralized vault.
+Add chaos engineering to proactively test resilience.
+Automate cost optimization and resource scaling with AI-based tools.
+
+Sample Answer:
+“If redesigning, I’d adopt GitOps using tools like ArgoCD for declarative cluster management. 
+Implementing a service mesh like Istio would improve traffic control and security policies. 
+Centralizing secrets with Vault and adding chaos engineering tests would boost resilience. 
+Finally, AI-driven cost management tools could optimize cloud spend dynamically.
+
+
+
+5. Kubernetes Setup from Scratch (Conceptual or Hands-On)
+-------------------------------------------------------------------------------
+
+Scenario:
+“Explain how you would set up a Kubernetes cluster for a new app.”
+
+Answer structure:
+
+Plan cluster architecture: number of nodes, master/control plane, worker nodes.
+Choose deployment environment (on-prem, cloud managed like EKS, GKE).
+Set up networking (CNI plugins like Calico or Flannel).
+Configure storage classes and persistent volumes.
+Set up ingress controllers and load balancers.
+Implement RBAC and namespace segmentation.
+Deploy monitoring and logging stacks (Prometheus, Grafana, Fluentd).
+Apply Helm charts for app deployment.
+
+Sample Answer:
+“To set up Kubernetes, I’d first decide on the environment—cloud managed or on-prem. Next,
+ architect the control plane and worker nodes for high availability. I’d deploy a CNI plugin like 
+ Calico for networking, configure storage classes for persistent volumes, and set up ingress 
+ controllers for traffic management. I’d implement RBAC for security, segment workloads with 
+ namespaces, and install monitoring/logging tools such as Prometheus and Fluentd. Apps would be 
+ deployed via Helm charts customized per environment.”

@@ -1,0 +1,171 @@
+#1. Ansible with Database Management
+Concise Interview Answer:
+“I use Ansible to automate database provisioning and configuration. It ensures consistent environments, enforces security settings, and can run migrations without manual intervention.”
+
+Use Case:
+Deploy a PostgreSQL instance for a new microservice, create the database/user, and run schema migration automatically.
+
+Script Outline:
+
+---
+- name: Setup PostgreSQL DB
+  hosts: db_server
+  become: yes
+  vars:
+    db_name: appdb
+    db_user: appuser
+    db_password: "{{ vault_db_password }}"
+  tasks:
+    - name: Install PostgreSQL
+      apt:
+        name: postgresql
+        state: present
+        update_cache: yes
+
+    - name: Create DB user
+      become_user: postgres
+      postgresql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+
+    - name: Create DB
+      become_user: postgres
+      postgresql_db:
+        name: "{{ db_name }}"
+        owner: "{{ db_user }}"
+
+#Execution Steps:
+#Launch Ansible with your inventory file:
+
+ansible-playbook -i hosts setup-db.yml --ask-vault-pass
+
+#Show SSH connection, Ansible task execution, and final DB creation verification:
+
+psql -U appuser -d appdb -c "\dt"
+
+---------------------------------------------------------------------------------------------
+
+#2. Helm Chart Configuration
+#Concise Interview Answer:
+#I package Kubernetes applications using Helm so teams can deploy with a single 
+#command while managing environment-specific values
+
+#Use Case:
+#Deploy a web API with a configurable replica count, image tag, and database secret reference.
+
+#Script Outline:
+#deployment.yml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "api.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    spec:
+      containers:
+        - name: api
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          envFrom:
+            - secretRef:
+                name: {{ .Values.dbSecret }}
+
+#values-dev.yaml
+
+replicaCount: 1
+image:
+  repository: myorg/api
+  tag: dev
+dbSecret: api-db-dev
+
+#Execution Steps:
+
+Show values-dev.yaml file.
+
+Run:
+
+helm install api ./chart -f values-dev.yaml
+kubectl get pods
+#Explain how swapping values-prod.yaml changes config without touching templates.
+
+-----------------------------------------------------------------------------------
+
+#3. Secrets Management
+#Concise Interview Answer:
+#“I never hardcode secrets. I use Kubernetes Secrets or Vault, ensure encryption at rest, and 
+#inject secrets at runtime.”
+
+#Use Case:
+#Store a database connection string securely in Kubernetes and mount it into a pod.
+
+#Script Outline:
+
+kubectl create secret generic db-credentials \
+  --from-literal=DATABASE_URL='postgres://user:pass@db:5432/appdb'
+
+#Pod manifest snippet:
+env:
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: db-credentials
+        key: DATABASE_URL
+
+#Execution Steps:
+
+#Run the kubectl create secret command.
+
+#Show it in the cluster (kubectl get secret db-credentials -o yaml).
+
+#Deploy a test pod to confirm env var injection.
+
+---------------------------------------------------------------------
+
+#4. CI/CD Pipeline for Terraform
+#Concise Interview Answer:
+#“My Terraform pipelines validate, run a plan for review, then apply changes with approvals to prevent drift or unauthorized changes.”
+
+#Use Case:
+#Provision AWS S3 buckets via GitLab CI with peer review.
+
+#Script Outline: .gitlab-ci.yml
+
+stages:
+  - validate
+  - plan
+  - apply
+
+validate:
+  stage: validate
+  script:
+    - terraform init
+    - terraform validate
+
+plan:
+  stage: plan
+  script:
+    - terraform plan -out=tfplan
+  artifacts:
+    paths:
+      - tfplan
+
+apply:
+  stage: apply
+  when: manual
+  script:
+    - terraform apply tfplan
+
+#Execution Steps:
+
+#Commit Terraform code and push to branch.
+
+#Show pipeline stages running.
+
+#Explain peer review process before triggering apply.
+
+
+
+
+
+

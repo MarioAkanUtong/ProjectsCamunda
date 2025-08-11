@@ -1,0 +1,186 @@
+#Demo Script Outlines
+
+#Ansible with Database Management Demo
+1. Show your inventory file targeting DB hosts.
+
+2. Present a playbook that installs PostgreSQL, configures pg_hba.conf, starts the service, and creates users/databases.
+
+3. Run a task applying schema migration from SQL files.
+
+4. Highlight idempotency and error handling.
+
+---
+- name: Setup PostgreSQL database server
+  hosts: db_servers
+  become: yes
+  vars:
+    db_name: myappdb
+    db_user: myappuser
+    db_password: securepassword123
+
+  tasks:
+    - name: Install PostgreSQL
+      apt:
+        name: postgresql
+        state: present
+        update_cache: yes
+
+    - name: Ensure PostgreSQL service is running
+      service:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    - name: Set PostgreSQL password for user "{{ db_user }}"
+      become_user: postgres
+      postgresql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        role_attr_flags: LOGIN
+
+    - name: Create database "{{ db_name }}"
+      become_user: postgres
+      postgresql_db:
+        name: "{{ db_name }}"
+        owner: "{{ db_user }}"
+        encoding: UTF8
+
+    - name: Apply schema migration
+      become_user: postgres
+      shell: psql -d {{ db_name }} -f /path/to/schema.sql
+      args:
+        creates: "/var/lib/postgresql/data/schema_applied.flag"
+      register: migration
+      failed_when: migration.rc != 0
+
+    - name: Create flag file after migration
+      file:
+        path: /var/lib/postgresql/data/schema_applied.flag
+        state: touch
+      when: migration is succeeded
+
+
+#Helm Charts Demo
+
+1. Open a Helm chart directory with Chart.yaml, values.yaml, and templates.
+
+2. Walk through deployment.yaml template showing variable usage.
+
+3. Show how you override values for dev vs prod with separate values files.
+
+4. Deploy or template the chart with helm install --dry-run and explain output.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "myapp.fullname" . }}
+  labels:
+    app: {{ include "myapp.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "myapp.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "myapp.name" . }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.dbSecretName }}
+                  key: database_url
+
+#values.yaml example:
+
+replicaCount: 3
+
+image:
+  repository: myorg/myapp
+  tag: "1.0.0"
+
+service:
+  port: 8080
+
+secrets:
+  dbSecretName: myapp-db-secret
+
+
+
+#Secrets Management Demo
+
+1. Show creating a Kubernetes secret via CLI or YAML manifest.
+
+2. Demonstrate Vault integration: how secrets are requested at runtime by pods.
+
+3. Explain secret rotation policies and RBAC restricting access.
+
+4. Show an encrypted file with sops or git-crypt as another option.
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: myapp-db-secret
+type: Opaque
+data:
+  database_url: bXlzcWw6Ly91c2VyOnBhc3N3b3JkQGRiLWhvc3Q6NTQzMg== # base64 encoded
+
+#Command to create secret from literal:
+
+kubectl create secret generic myapp-db-secret --from-literal=database_url='mysql://user:password@db-host:5432'
+
+
+#CI/CD Pipeline for Terraform Demo
+
+1. Show a .gitlab-ci.yml or Jenkinsfile with stages: init, plan, apply.
+
+2. Explain branching strategy (dev → staging → prod) and how manual approval gates work before apply in higher environments.
+
+3. Show linting and security scanning steps (e.g., tfsec).
+
+4. Discuss state management in remote backend (S3, Consul) and locking.
+
+5. Demonstrate notification setup on success/failure.
+
+stages:
+  - validate
+  - plan
+  - apply
+
+variables:
+  TF_ROOT: "infrastructure/terraform"
+
+before_script:
+  - cd $TF_ROOT
+  - terraform init -backend-config="bucket=my-tf-state-bucket" -backend-config="region=us-east-1"
+
+validate:
+  stage: validate
+  script:
+    - terraform validate
+    - tfsec .
+
+plan:
+  stage: plan
+  script:
+    - terraform plan -out=tfplan
+  artifacts:
+    paths:
+      - $TF_ROOT/tfplan
+
+apply:
+  stage: apply
+  when: manual
+  script:
+    - terraform apply tfplan
+  environment:
+    name: production
+  only:
+    - main

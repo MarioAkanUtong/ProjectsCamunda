@@ -1,0 +1,138 @@
+Ansible with Database Management Demo
+Show your inventory file targeting DB hosts.
+Present a playbook that installs PostgreSQL, configures pg_hba.conf, starts the service, 
+and creates users/databases.
+Run a task applying schema migration from SQL files.
+Highlight idempotency and error handling.
+
+Ansible with Database Management
+Concise Interview Answer:
+“I use Ansible to automate database provisioning and configuration. It ensures consistent 
+environments, enforces security settings, and can run migrations without manual 
+intervention.”
+
+Use Case:
+Deploy a PostgreSQL instance for a new microservice, create the database/user, and run 
+schema migration automatically.
+
+---
+- name: Setup PostgreSQL DB
+  hosts: db_server
+  become: yes
+  vars:
+    db_name: appdb
+    db_user: appuser
+    db_password: "{{ vault_db_password }}"
+  tasks:
+    - name: Install PostgreSQL
+      apt:
+        name: postgresql
+        state: present
+        update_cache: yes
+
+    - name: Create DB user
+      become_user: postgres
+      postgresql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+
+    - name: Create DB
+      become_user: postgres
+      postgresql_db:
+        name: "{{ db_name }}"
+        owner: "{{ db_user }}"
+
+
+
+#Execution Steps:
+
+#Launch Ansible with your inventory file:
+
+ansible-playbook -i hosts setup-db.yml --ask-vault-pass
+
+#Show SSH connection, Ansible task execution, and final DB creation verification
+psql -U appuser -d appdb -c "\dt"
+
+---
+
+- name: Configure application servers
+  hosts: app_servers
+  become: yes
+  tasks:
+    - name: Install dependencies
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - nginx
+        - python3-pip
+
+    - name: Deploy application config
+      template:
+        src: templates/app.conf.j2
+        dest: /etc/nginx/sites-available/app.conf
+      notify:
+        - restart nginx
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
+
+---
+# Ansible with Database Management: Example Playbook
+
+---
+- name: Setup PostgreSQL database server
+  hosts: db_servers
+  become: yes
+  vars:
+    db_name: myappdb
+    db_user: myappuser
+    db_password: securepassword123
+
+  tasks:
+    - name: Install PostgreSQL
+      apt:
+        name: postgresql
+        state: present
+        update_cache: yes
+
+    - name: Ensure PostgreSQL service is running
+      service:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    - name: Set PostgreSQL password for user "{{ db_user }}"
+      become_user: postgres
+      postgresql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        role_attr_flags: LOGIN
+
+    - name: Create database "{{ db_name }}"
+      become_user: postgres
+      postgresql_db:
+        name: "{{ db_name }}"
+        owner: "{{ db_user }}"
+        encoding: UTF8
+
+    - name: Apply schema migration
+      become_user: postgres
+      shell: psql -d {{ db_name }} -f /path/to/schema.sql
+      args:
+        creates: "/var/lib/postgresql/data/schema_applied.flag"
+      register: migration
+      failed_when: migration.rc != 0
+
+    - name: Create flag file after migration
+      file:
+        path: /var/lib/postgresql/data/schema_applied.flag
+        state: touch
+      when: migration is succeeded
+
+
+
+
+
