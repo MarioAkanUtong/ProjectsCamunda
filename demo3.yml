@@ -1,0 +1,175 @@
+Alright — let’s turn your story into **realistic, runnable code snippets** that show exactly 
+what you described in that interview answer.
+
+We’ll break it into:
+
+1. **Terraform reusable modules** for network, compute, and storage.
+2. **Ansible configuration management** for post-provision setup.
+3. **Vault integration** for secret handling.
+4. **Execution flow** (so you can demo it live in an interview).
+
+---
+
+## 1. Terraform — Reusable Module Example
+
+### `modules/network/main.tf`
+
+```hcl
+variable "vpc_cidr" {}
+variable "env" {}
+
+resource "aws_vpc" "main" {
+  cidr_block = var.vpc_cidr
+  tags = {
+    Name = "${var.env}-vpc"
+  }
+}
+```
+
+---
+
+### `modules/compute/main.tf`
+
+```hcl
+variable "instance_type" {}
+variable "ami_id" {}
+variable "subnet_id" {}
+variable "env" {}
+
+resource "aws_instance" "app" {
+  ami           = var.ami_id
+  instance_type = var.instance_type
+  subnet_id     = var.subnet_id
+  tags = {
+    Name = "${var.env}-app-instance"
+  }
+}
+```
+
+---
+
+### `modules/storage/main.tf`
+
+```hcl
+variable "bucket_name" {}
+variable "env" {}
+
+resource "aws_s3_bucket" "storage" {
+  bucket = "${var.bucket_name}-${var.env}"
+  acl    = "private"
+}
+```
+
+---
+
+### Root Project — `main.tf`
+
+```hcl
+module "network" {
+  source   = "./modules/network"
+  vpc_cidr = "10.0.0.0/16"
+  env      = var.env
+}
+
+module "compute" {
+  source        = "./modules/compute"
+  ami_id        = "ami-123456"
+  instance_type = "t3.micro"
+  subnet_id     = "subnet-abc123"
+  env           = var.env
+}
+
+module "storage" {
+  source      = "./modules/storage"
+  bucket_name = "app-storage"
+  env         = var.env
+}
+```
+
+---
+
+## 2. Ansible — Configuration Management
+
+`playbooks/configure-app.yml`
+
+```yaml
+---
+- name: Configure application servers
+  hosts: app_servers
+  become: yes
+  tasks:
+    - name: Install dependencies
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - nginx
+        - python3-pip
+
+    - name: Deploy application config
+      template:
+        src: templates/app.conf.j2
+        dest: /etc/nginx/sites-available/app.conf
+      notify:
+        - restart nginx
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
+```
+
+---
+
+## 3. Vault Integration for Secrets
+
+Example: Store DB password in Vault and inject into Ansible.
+
+```bash
+vault kv put secret/db password="S3cur3P@ssw0rd"
+```
+
+Ansible playbook snippet to fetch from Vault:
+
+```yaml
+- name: Get DB secret from Vault
+  set_fact:
+    db_password: "{{ lookup('community.hashi_vault.hashi_vault', 'secret=db:password token={{ vault_token }} url=http://vault.local:8200') }}"
+```
+
+---
+------------------------------------------------------------------------------------------------
+## 4. Execution Flow (Live Demo)
+
+1. **Provision Infrastructure**
+
+   ```bash
+   terraform init
+   terraform apply -var env=dev
+   ```
+
+   Show modules creating network, compute, and storage.
+
+2. **Configure with Ansible**
+
+   ```bash
+   ansible-playbook -i inventory.ini playbooks/configure-app.yml
+   ```
+
+3. **Inject Secrets Securely**
+
+   ```bash
+   vault login <token>
+   vault kv get secret/db
+   ```
+
+   Show secret being pulled into Ansible without hardcoding.
+
+4. **Highlight Results**
+
+   * Point out reusable modules (`./modules/*`)
+   * Show Ansible configuration changes applied instantly
+   * Explain how Vault protects sensitive data
+
+---
+
