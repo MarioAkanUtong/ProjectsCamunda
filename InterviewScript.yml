@@ -1,0 +1,130 @@
+Alright — here’s a **mock interview practice script** you can follow so you sound confident and technical when walking through that Terraform + Ansible + Vault project in front of an interviewer.
+
+---
+
+## 1. **Project Introduction**
+
+**Interviewer Question:** Tell me about a recent project you led.
+**You:**
+
+> In my last role, I led a cloud migration project where we automated infrastructure provisioning 
+with Terraform and configuration management with Ansible. The main goal was to standardize 
+deployments across dev, staging, and prod while tightening up secret management using Vault.
+>
+> We built reusable Terraform modules for networking, compute, and storage, so teams could spin 
+up environments with minimal changes. Ansible handled OS and app configuration. For secrets, 
+we integrated HashiCorp Vault into our pipelines to remove hardcoded credentials.
+>
+> This cut deployment times by around 60% and almost eliminated manual config drift.
+
+---
+
+## 2. **Terraform Walkthrough**
+
+**Interviewer:** Can you show me your Terraform setup?
+**You:**
+
+> Sure. I structured it into reusable modules — `network`, `compute`, and `storage`. Here’s the
+ network module:
+
+```hcl
+resource "aws_vpc" "main" {
+  cidr_block = var.vpc_cidr
+  tags = {
+    Name = "${var.env}-vpc"
+  }
+}
+```
+
+> Each environment — dev, staging, prod — just passes different variables. That way, the code 
+stays DRY, and we can scale without re-writing.
+
+**Command to show:**
+
+```bash
+cd terraform
+terraform init
+terraform apply -var env=dev
+```
+
+---
+
+## 3. **Ansible Setup**
+
+**Interviewer:** How did you handle server configuration?
+**You:**
+
+> After provisioning EC2 instances, Ansible kicks in. The playbook installs dependencies, deploys 
+configs, and restarts services. Here’s part of the playbook:
+
+```yaml
+- name: Configure application servers
+  hosts: app_servers
+  become: yes
+  tasks:
+    - name: Install dependencies
+      apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      loop:
+        - nginx
+        - python3-pip
+```
+
+> We kept all configs as Jinja templates so we could version-control them. This made rollback and
+ auditing much easier.
+
+**Command to show:**
+
+```bash
+cd ../ansible
+ansible-playbook -i inventory.ini playbooks/configure-app.yml
+```
+
+---
+
+## 4. **Vault Integration**
+
+**Interviewer:** How did you manage secrets?
+**You:**
+
+> We used Vault’s KV engine. During the CI/CD pipeline, secrets were pulled dynamically. That way, 
+nothing sensitive was in Git or in plain text configs.
+
+**Demo Command:**
+
+```bash
+cd ../vault
+./store-secrets.sh
+ansible-playbook fetch-secret.yml -e vault_token=$VAULT_TOKEN
+```
+
+> This approach also allowed us to rotate passwords without redeploying infrastructure.
+
+---
+
+## 5. **Kubernetes Use Case (If Asked)**
+
+**Interviewer:** Could this tie into Kubernetes?
+**You:**
+
+> Yes — the Terraform layer could provision EKS clusters. Then Ansible could be replaced or 
+complemented with Helm for Kubernetes-native deployments. Vault would still be the secret store, 
+using Kubernetes service accounts for authentication.
+
+---
+
+## 6. **Success Metrics**
+
+**You:**
+
+> We measured success in three ways:
+>
+> 1. Deployment time dropped by 60%.
+> 2. Zero manual config drift after 90 days.
+> 3. Secret exposure incidents went to zero.
+
+---
+
+
