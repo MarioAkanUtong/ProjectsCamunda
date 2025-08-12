@@ -1,0 +1,514 @@
+Nice — below is a complete, run-ready guide for **setting up Kubernetes from scratch** in AWS using **Terraform + EKS** (managed cluster) plus the post-install steps you’ll demo in an interview: CNI, storage class, RBAC, ingress, metrics, a sample Helm app, and basic security pieces (NetworkPolicy, secrets, IRSA mention). I also include a short **kubeadm** path if you need to show an on-prem/manual install.
+
+Copy/paste this into a repo and you’ll be able to run it. I’ll keep each file minimal and focused so it’s easy to explain live.
+
+---
+
+## What this does (high level)
+
+1. Use Terraform to create VPC, subnets, and an EKS cluster (multi-AZ) using the well-known `terraform-aws-modules/eks/aws` module.
+2. Update kubeconfig and verify cluster access.
+3. Install CNI, Helm, metrics-server, nginx ingress.
+4. Create StorageClass (gp3) for PVs, sample Namespace, RBAC, and a NetworkPolicy.
+5. Deploy a sample Helm app and show how to read secrets from Kubernetes.
+6. Clean up commands.
+
+---
+
+## Repo layout
+
+```
+k8s-from-scratch/
+├── terraform/
+│   ├── provider.tf
+│   ├── variables.tf
+│   ├── main.tf
+│   └── outputs.tf
+├── k8s-manifests/
+│   ├── namespace.yaml
+│   ├── storageclass-gp3.yaml
+│   ├── rb-rolebinding.yaml
+│   └── networkpolicy-deny-other-namespaces.yaml
+└── demo/
+    ├── helm-values.yaml
+    └── sample-deploy.yaml
+```
+
+---
+
+## 1) Terraform (AWS EKS) — files
+
+**terraform/provider.tf**
+
+```hcl
+terraform {
+  required_version = ">= 1.2.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+```
+
+**terraform/variables.tf**
+
+```hcl
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "cluster_name" {
+  type    = string
+  default = "demo-eks-cluster"
+}
+
+variable "vpc_cidr" {
+  type    = string
+  default = "10.0.0.0/16"
+}
+```
+
+**terraform/main.tf**
+
+```hcl
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = ">= 3.0"
+
+  name = "${var.cluster_name}-vpc"
+  cidr = var.vpc_cidr
+
+  azs             = ["us-east-1a","us-east-1b","us-east-1c"]
+  private_subnets = ["10.0.1.0/24","10.0.2.0/24","10.0.3.0/24"]
+  public_subnets  = ["10.0.101.0/24","10.0.102.0/24","10.0.103.0/24"]
+
+  enable_nat_gateway = true
+  single_nat_gateway = true
+}
+
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = ">= 19.0"
+
+  cluster_name    = var.cluster_name
+  cluster_version = "1.27"
+  subnets         = module.vpc.private_subnets
+  vpc_id          = module.vpc.vpc_id
+
+  node_groups = {
+    ng-demo = {
+      desired_capacity = 2
+      max_capacity     = 3
+      min_capacity     = 1
+      instance_type    = "t3.medium"
+      key_name         = "" # optional: your key
+    }
+  }
+
+  # enable IRSA (recommended) - automatically create OIDC provider
+  manage_iam_role = true
+  enable_irsa     = true
+
+  tags = {
+    Project = "k8s-demo"
+  }
+}
+
+# Optional: create S3 bucket for Terraform state backend or pass your own backend config
+```
+
+**terraform/outputs.tf**
+
+```hcl
+output "cluster_name" {
+  value = module.eks.cluster_id
+}
+
+output "kubeconfig_certificate_authority_data" {
+  value = module.eks.cluster_certificate_authority_data
+}
+```
+
+> Notes:
+>
+> * This uses the community modules which handle a lot of EKS boilerplate (node groups, OIDC for IRSA).
+> * If you demo live, keep `instance_type` small and `desired_capacity` 1–2 to avoid cost/time overhead.
+
+---
+
+## 2) Terraform run (commands)
+
+From `terraform/`:
+
+```bash
+terraform init
+terraform apply -var aws_region=us-east-1 -var cluster_name=demo-eks-cluster -auto-approve
+```
+
+After apply finishes, get kubeconfig (Terraform module prints the cluster name, or run):
+
+```bash
+aws eks update-kubeconfig --region us-east-1 --name demo-eks-cluster
+kubectl get nodes
+```
+
+Talking points during demo:
+
+* “Terraform provs VPC and EKS with node groups. The module creates OIDC provider so we can use IRSA for pods to access AWS resources safely.”
+* Show `kubectl get nodes` and explain node count and labels.
+
+---
+
+## 3) Essential cluster post-install (Helm, CNI, metrics, ingress)
+
+Assuming `kubectl` is set.
+
+**Install Helm (if not installed)**
+
+```bash
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+```
+
+**CNI** (EKS uses Amazon VPC CNI by default; you can explain it’s already installed). If using self-managed Kubernetes, you'd install a CNI such as Calico:
+
+```bash
+# Example: calico for network policy capabilities (for non-EKS)
+kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+```
+
+**Install metrics-server**
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl get deployment metrics-server -n kube-system
+```
+
+**Install NGINX Ingress via Helm**
+
+```bash
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+helm install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace
+kubectl get svc -n ingress-nginx
+```
+
+Talking points:
+
+* Metrics-server enables HPA & resource metrics.
+* Ingress controller provides external routing and TLS termination options.
+
+---
+
+## 4) StorageClass (gp3) manifest
+
+**k8s-manifests/storageclass-gp3.yaml**
+
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp3
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+```
+
+Apply:
+
+```bash
+kubectl apply -f k8s-manifests/storageclass-gp3.yaml
+kubectl get sc
+```
+
+Talking point: `WaitForFirstConsumer` helps with topology-aware provisioning across AZs.
+
+---
+
+## 5) Namespace, RBAC, NetworkPolicy (manifests)
+
+**k8s-manifests/namespace.yaml**
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-app
+```
+
+**k8s-manifests/rb-rolebinding.yaml**
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: demo-app
+  name: demo-app-role
+rules:
+  - apiGroups: [""]
+    resources: ["pods","services","configmaps"]
+    verbs: ["get","list","create","update","delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  namespace: demo-app
+  name: demo-app-binding
+subjects:
+  - kind: Group
+    name: system:authenticated
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: demo-app-role
+  apiGroup: rbac.authorization.k8s.io
+```
+
+**k8s-manifests/networkpolicy-deny-other-namespaces.yaml**
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-only-namespace
+  namespace: demo-app
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {} # allow from same namespace
+  egress:
+    - to:
+        - podSelector: {}
+```
+
+Apply:
+
+```bash
+kubectl apply -f k8s-manifests/namespace.yaml
+kubectl apply -f k8s-manifests/rb-rolebinding.yaml
+kubectl apply -f k8s-manifests/networkpolicy-deny-other-namespaces.yaml
+kubectl get ns,roles -n demo-app
+```
+
+Talking points:
+
+* Use RBAC to limit resource actions per namespace.
+* NetworkPolicy denies cross-namespace traffic unless explicitly allowed.
+
+---
+
+## 6) Deploy a sample app via Helm + expose via ingress
+
+**demo/helm-values.yaml**
+
+```yaml
+replicaCount: 2
+image:
+  repository: nginx
+  tag: "1.24"
+service:
+  type: ClusterIP
+ingress:
+  enabled: true
+  hosts:
+    - host: demo-app.local
+      paths:
+        - /
+```
+
+If you have a simple Helm chart `my-nginx` locally, you’d run:
+
+```bash
+kubectl create namespace demo-app
+helm install demo-nginx ./my-nginx -n demo-app -f demo/helm-values.yaml
+kubectl get pods -n demo-app
+kubectl get ingress -n demo-app
+```
+
+If you don’t have a chart, quick test using plain manifests:
+
+```yaml
+# demo/sample-deploy.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-demo
+  namespace: demo-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-demo
+  template:
+    metadata:
+      labels:
+        app: nginx-demo
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.24
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-demo
+  namespace: demo-app
+spec:
+  selector:
+    app: nginx-demo
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
+```
+
+Apply:
+
+```bash
+kubectl apply -f demo/sample-deploy.yaml
+```
+
+To test ingress locally for demo, you can port-forward the service:
+
+```bash
+kubectl port-forward svc/nginx-demo -n demo-app 8080:80
+# browse http://localhost:8080
+```
+
+Talking points:
+
+* Explain Helm templatization of image/tag and env-specific values.
+* Show `kubectl describe ingress` to highlight rules.
+
+---
+
+## 7) Secrets & Vault demo (simple Kubernetes secret + mention Vault)
+
+**Create k8s secret (demo only)**:
+
+```bash
+kubectl -n demo-app create secret generic db-creds \
+  --from-literal=DB_USER=appuser \
+  --from-literal=DB_PASS='S3cr3t!'
+```
+
+Reference in pod (env example) — already shown earlier in Helm template snippet.
+
+**Vault integration (talking points, not full run in interview unless you have Vault running):**
+
+* Enable OIDC/IAM auth for pods via IRSA so pods assume roles to retrieve secrets.
+* Use `kubernetes` auth method or AWS IAM auth to allow apps to fetch secrets at runtime.
+* Advantages: dynamic secrets, rotation, no plaintext in git.
+
+---
+
+## 8) Monitoring & Alerts (brief)
+
+Install Prometheus & Grafana with Helm (kube-prometheus-stack):
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace
+kubectl get pods -n monitoring
+```
+
+Talking points:
+
+* Show basic alerts (node down, high CPU).
+* Explain alert routing to PagerDuty/Slack via Alertmanager.
+
+---
+
+## 9) CI/CD for cluster changes (concept + sample)
+
+Outline: Git -> PR -> Terraform plan (CI) -> peer review -> apply to dev automatically -> apply to staging/prod via pipeline with manual approvals.
+
+Sample GitHub Actions step to run terraform plan:
+
+```yaml
+name: terraform
+on: [pull_request]
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v2
+      - run: terraform init
+      - run: terraform plan -out=tfplan
+      - run: terraform show -no-color tfplan > plan.txt
+      - run: cat plan.txt
+```
+
+For apply (protected branch + manual approval):
+
+* Use `workflow_dispatch` or `environment` protection in GitHub to restrict who can approve.
+
+Talking points:
+
+* Remote state in S3 + DynamoDB locking.
+* tfsec or checkov runs in CI.
+* Terraform plan artifact used for peer review.
+
+---
+
+## 10) Cleanup (destroy Terraform resources)
+
+From `terraform/`:
+
+```bash
+terraform destroy -var env=dev -auto-approve
+```
+
+Also `kubectl delete namespace demo-app` for k8s resources.
+
+---
+
+## Quick Q\&A prep (answers you can say in interview)
+
+Q: Why EKS (managed) vs kubeadm?
+A: “EKS removes control-plane management burden, provides AWS integration (IAM, ALB), and scales reliably. For full control or air-gapped environments I’d use kubeadm or k0s.”
+
+Q: How do you secure the cluster?
+A: “RBAC least privilege, NetworkPolicies to restrict traffic, IRSA for pod AWS permissions, encrypt secrets at rest, and run image scanning/PodSecurityPolicies (or OPA/Gatekeeper).”
+
+Q: How do you handle multi-AZ storage?
+A: “Use `WaitForFirstConsumer` StorageClass and AWS EBS gp3 volumes created per AZ. For truly multi-AZ, use S3 for object storage or a replicated solution like Rook/Ceph.”
+
+Q: How do you avoid drift?
+A: “GitOps (ArgoCD) for app manifests and Terraform in CI for infra with remote state and locking. Regular drift scans and pre-merge plan requirement.”
+
+---
+
+## Final tips for demoing live
+
+* Prepare screenshots or a short screen-record if you’re worried about time/cost of provisioning a real cluster.
+* If you run live, provision before interview (or have a small dev cluster ready). Use low-cost instance types to avoid bills.
+* Practice running these commands out loud so your narration is smooth: explain intent, run command, show result, call out the key line in output.
+
+---
+
+If you want, I’ll:
+
+* Generate a single zip with all the files filled in, or
+* Convert the Terraform to use a local `kind` + `kubeadm` demo for an offline interview, or
+* Create a 5–minute scripted demo checklist (what to say, what to click) for your screen share.
+
+Which one do you want next?
