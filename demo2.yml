@@ -160,9 +160,7 @@ apply:
 
 #Commit Terraform code and push to branch.
 
-#Show pipeline stages running.
-
-#Explain peer review process before triggering apply.
+#Show pipeline stages running.Explain peer review process before triggering apply.
 
 
 

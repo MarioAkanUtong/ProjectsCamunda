@@ -128,3 +128,45 @@ Sample Answer:
  controllers for traffic management. I’d implement RBAC for security, segment workloads with 
  namespaces, and install monitoring/logging tools such as Prometheus and Fluentd. Apps would be 
  deployed via Helm charts customized per environment.”
+ 
+ ___________________________________________________________________
+ 
+ Mock Interview Questions + Sample Answers
+Question 1: Describe a major challenge you faced during infrastructure automation and how you 
+solved it.
+Answer:
+“In one project, managing secrets securely was a big challenge. Initially, we had hardcoded 
+credentials which posed risks. I introduced HashiCorp Vault integrated with our CI pipelines, 
+enabling dynamic secret injection and automatic rotation. This reduced manual secret handling 
+errors and improved compliance with security audits.”
+
+Question 2: How do you test Terraform code before applying it to production?
+Answer:
+“I run terraform validate to catch syntax issues, followed by static analysis with tfsec 
+for security checks. Then I execute terraform plan in dev/staging to preview changes. The 
+plan is peer-reviewed before manual approval to apply in production, ensuring no unintended
+ infrastructure changes.”
+
+Question 3: Explain how you would configure Helm charts for multiple environments.
+Answer:
+“I use separate values.yaml files per environment (e.g., values-dev.yaml, values-prod.yaml)
+ to override settings like replica count, resource limits, or secrets references. This allows 
+ the same chart template to be deployed with environment-specific configurations, maintaining 
+ DRY principles and consistency.”
+
+Question 4: What’s your approach to secrets management in Kubernetes?
+Answer:
+“I avoid storing secrets in plaintext. I use Kubernetes Secrets encrypted at rest and integrate
+ Vault for dynamic secrets provisioning. Secrets are mounted as environment variables or files 
+ and access is controlled via RBAC. I ensure secrets are rotated regularly and audit access via 
+ logging.”
+
+Question 5: How do you design a CI/CD pipeline to deploy Terraform infrastructure with peer reviews
+ and testing?
+Answer:
+“I create pipeline stages for validate, plan, and apply. The plan stage runs automated tests
+ and produces a plan file artifact. The apply stage requires manual approval to prevent accidental
+  changes. The pipeline triggers on feature branches with merges to main initiating the production
+   apply. Remote state backend and locking prevent concurrent modifications.”
+
+
